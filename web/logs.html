@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仓库库存管理系统 - 操作日志</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-icon">&#x1F4E6;</div>
+                <div>
+                    <h2>库存管理</h2>
+                    <p>Warehouse System</p>
+                </div>
+            </div>
+            <ul class="sidebar-nav">
+                <li><a href="#" id="navDashboard"><span class="nav-icon">&#x1F4CA;</span> 设备总览</a></li>
+                <li><a href="#" id="navAdmin"><span class="nav-icon">&#x1F465;</span> 用户管理</a></li>
+                <li><a href="#" id="navLogs" class="active"><span class="nav-icon">&#x1F4CB;</span> 操作日志</a></li>
+                <li><a href="#" id="navLogout"><span class="nav-icon">&#x1F6AA;</span> 退出登录</a></li>
+            </ul>
+        </div>
+
+        <div class="topbar">
+            <h3>操作日志</h3>
+            <div class="topbar-right">
+                <div class="topbar-user">
+                    <div class="avatar" id="userAvatar">A</div>
+                    <span id="userName">user</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="toolbar">
+                <div style="flex:1"></div>
+                <button class="btn btn-secondary btn-sm" onclick="loadLogs()">刷新</button>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>操作记录</h3>
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>操作人</th>
+                                <th>操作类型</th>
+                                <th>设备名称</th>
+                                <th>数量</th>
+                                <th>详情</th>
+                                <th>操作时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" id="emptyState" style="display:none">
+                    <div class="empty-icon">&#x1F4CB;</div>
+                    <p>暂无操作记录</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getToken() {
+            let token = sessionStorage.getItem('auth_token');
+            if (token) return token;
+            const params = new URLSearchParams(window.location.search);
+            token = params.get('token');
+            if (token) { sessionStorage.setItem('auth_token', token); window.history.replaceState({}, '', '/logs'); return token; }
+            return null;
+        }
+        function pageUrl(path) { return path + '?token=' + encodeURIComponent(getToken()); }
+        function redirectToLogin() { sessionStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_user'); window.location.href = '/'; }
+
+        async function init() {
+            const token = getToken();
+            if (!token) { redirectToLogin(); return; }
+            const username = sessionStorage.getItem('auth_user') || 'user';
+            document.getElementById('userName').textContent = username;
+            document.getElementById('userAvatar').textContent = username.charAt(0).toUpperCase();
+            document.getElementById('navDashboard').href = pageUrl('/dashboard');
+            document.getElementById('navAdmin').href = pageUrl('/admin');
+            document.getElementById('navLogs').href = pageUrl('/logs');
+            document.getElementById('navLogout').addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await fetch('/logout', { headers: { 'Authorization': 'Bearer ' + getToken() } }); } catch(e) {}
+                redirectToLogin();
+            });
+            await loadLogs();
+        }
+
+        async function loadLogs() {
+            const res = await fetch('/api/logs?limit=200', { headers: { 'Authorization': 'Bearer ' + getToken() } });
+            if (res.status === 401 || res.status === 403) { redirectToLogin(); return; }
+            const logs = await res.json();
+            renderLogs(logs);
+        }
+
+        function renderLogs(logs) {
+            const tbody = document.getElementById('logTableBody');
+            const empty = document.getElementById('emptyState');
+            if (logs.length === 0) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+            empty.style.display = 'none';
+
+            const actionColors = { '入库':'success', '出库':'warning', '登录':'info', '登出':'info', '添加设备':'success', '删除设备':'danger', '添加用户':'success', '删除用户':'danger' };
+
+            tbody.innerHTML = logs.map(l => {
+                const color = actionColors[l.action] || 'info';
+                return `<tr>
+                    <td>${l.id}</td>
+                    <td><strong>${escHtml(l.username)}</strong></td>
+                    <td><span class="badge badge-${color}">${escHtml(l.action)}</span></td>
+                    <td>${escHtml(l.device_name || '-')}</td>
+                    <td>${l.quantity || '-'}</td>
+                    <td>${escHtml(l.detail || '-')}</td>
+                    <td>${l.created_at || '-'}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function escHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+        init();
+    </script>
+</body>
+</html>

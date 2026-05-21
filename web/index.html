@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仓库库存管理系统 - 登录</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="login-page">
+        <div class="login-card">
+            <div class="logo">
+                <div class="logo-icon">&#x1F4E6;</div>
+                <h1>仓库库存管理系统</h1>
+                <p class="subtitle">Lightweight Warehouse Inventory Management</p>
+            </div>
+
+            <div class="error-msg" id="errorMsg"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" name="username" class="form-input" placeholder="请输入用户名" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" name="password" class="form-input" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="btn btn-primary">登 录</button>
+            </form>
+
+            <p style="text-align:center; margin-top:24px; font-size:12px; color:var(--gray-400);">
+                默认管理员: admin / admin123
+            </p>
+        </div>
+    </div>
+
+    <script>
+        /* Clear any previous session for this tab */
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_user');
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const errorDiv = document.getElementById('errorMsg');
+            errorDiv.classList.remove('show');
+            errorDiv.textContent = '';
+
+            const fd = new FormData(this);
+            const params = new URLSearchParams();
+            for (const [k, v] of fd) params.append(k, v);
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: params.toString()
+                });
+                const data = await res.json();
+
+                if (data.success && data.token) {
+                    /* Store token in sessionStorage (per-tab) */
+                    sessionStorage.setItem('auth_token', data.token);
+                    sessionStorage.setItem('auth_user', data.username);
+                    window.location.href = '/dashboard?token=' + encodeURIComponent(data.token);
+                } else {
+                    errorDiv.textContent = data.message || '登录失败';
+                    errorDiv.classList.add('show');
+                }
+            } catch (err) {
+                errorDiv.textContent = '网络错误，请重试';
+                errorDiv.classList.add('show');
+            }
+        });
+    </script>
+</body>
+</html>

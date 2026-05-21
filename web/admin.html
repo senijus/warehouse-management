@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仓库库存管理系统 - 用户管理</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-icon">&#x1F4E6;</div>
+                <div>
+                    <h2>库存管理</h2>
+                    <p>Warehouse System</p>
+                </div>
+            </div>
+            <ul class="sidebar-nav">
+                <li><a href="#" id="navDashboard"><span class="nav-icon">&#x1F4CA;</span> 设备总览</a></li>
+                <li><a href="#" id="navAdmin" class="active"><span class="nav-icon">&#x1F465;</span> 用户管理</a></li>
+                <li><a href="#" id="navLogs"><span class="nav-icon">&#x1F4CB;</span> 操作日志</a></li>
+                <li><a href="#" id="navLogout"><span class="nav-icon">&#x1F6AA;</span> 退出登录</a></li>
+            </ul>
+        </div>
+
+        <div class="topbar">
+            <h3>用户管理</h3>
+            <div class="topbar-right">
+                <div class="topbar-user">
+                    <div class="avatar" id="userAvatar">A</div>
+                    <span id="userName">user</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="toolbar">
+                <div style="flex:1"></div>
+                <button class="btn btn-primary btn-sm" onclick="showAddUserModal()">+ 添加用户</button>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>用户列表</h3>
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>角色</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="addUserModal">
+        <div class="modal">
+            <h3>添加用户</h3>
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label>用户名 *</label>
+                    <input type="text" name="username" class="form-input" placeholder="输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label>密码 *</label>
+                    <input type="password" name="password" class="form-input" placeholder="输入密码" required>
+                </div>
+                <div class="form-group">
+                    <label>角色</label>
+                    <select name="role" class="form-input">
+                        <option value="operator">操作员 (Operator)</option>
+                        <option value="admin">管理员 (Admin)</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('addUserModal')">取消</button>
+                    <button type="submit" class="btn btn-primary btn-sm">确认添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-backdrop" id="deleteUserModal">
+        <div class="modal">
+            <h3>确认删除用户</h3>
+            <p style="color:var(--gray-600); margin-bottom:8px;">确定要删除以下用户吗？</p>
+            <p style="font-weight:600; color:var(--gray-900);" id="deleteUserName"></p>
+            <input type="hidden" id="deleteUserNameInput">
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('deleteUserModal')">取消</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        function getToken() {
+            let token = sessionStorage.getItem('auth_token');
+            if (token) return token;
+            const params = new URLSearchParams(window.location.search);
+            token = params.get('token');
+            if (token) {
+                sessionStorage.setItem('auth_token', token);
+                window.history.replaceState({}, '', '/admin');
+                return token;
+            }
+            return null;
+        }
+        function apiHeaders() { return { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Bearer ' + getToken() }; }
+        function pageUrl(path) { return path + '?token=' + encodeURIComponent(getToken()); }
+        function redirectToLogin() { sessionStorage.removeItem('auth_token'); sessionStorage.removeItem('auth_user'); window.location.href = '/'; }
+
+        async function init() {
+            const token = getToken();
+            if (!token) { redirectToLogin(); return; }
+            const username = sessionStorage.getItem('auth_user') || 'user';
+            document.getElementById('userName').textContent = username;
+            document.getElementById('userAvatar').textContent = username.charAt(0).toUpperCase();
+            document.getElementById('navDashboard').href = pageUrl('/dashboard');
+            document.getElementById('navAdmin').href = pageUrl('/admin');
+            document.getElementById('navLogs').href = pageUrl('/logs');
+            document.getElementById('navLogout').addEventListener('click', async (e) => {
+                e.preventDefault();
+                try { await fetch('/logout', { headers: { 'Authorization': 'Bearer ' + getToken() } }); } catch(e) {}
+                redirectToLogin();
+            });
+            await loadUsers();
+        }
+
+        async function loadUsers() {
+            const res = await fetch('/api/users', { headers: { 'Authorization': 'Bearer ' + getToken() } });
+            if (res.status === 401 || res.status === 403) { redirectToLogin(); return; }
+            const users = await res.json();
+            renderUsers(users);
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = users.map(u => {
+                const roleBadge = u.role === 'admin' ? '<span class="badge badge-info">管理员</span>' : '<span class="badge badge-success">操作员</span>';
+                const canDelete = u.username !== 'admin';
+                const deleteBtn = canDelete ? `<button class="btn btn-danger btn-sm" onclick="showDeleteUserModal('${escHtml(u.username)}')">删除</button>` : '<span style="color:var(--gray-400);font-size:12px">不可删除</span>';
+                return `<tr><td>${u.id}</td><td><strong>${escHtml(u.username)}</strong></td><td>${roleBadge}</td><td>${u.created_at || '-'}</td><td>${deleteBtn}</td></tr>`;
+            }).join('');
+        }
+
+        function escHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+        function showAddUserModal() { document.getElementById('addUserForm').reset(); openModal('addUserModal'); }
+        function showDeleteUserModal(username) { document.getElementById('deleteUserName').textContent = username; document.getElementById('deleteUserNameInput').value = username; openModal('deleteUserModal'); }
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        document.getElementById('addUserForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const fd = new FormData(this);
+            const params = new URLSearchParams();
+            for (const [k, v] of fd) params.append(k, v);
+            const res = await fetch('/api/user/add', { method: 'POST', headers: apiHeaders(), body: params.toString() });
+            const data = await res.json();
+            if (data.success) { closeModal('addUserModal'); showToast('用户添加成功', 'success'); loadUsers(); }
+            else showToast(data.message || '添加失败', 'error');
+        });
+
+        async function confirmDeleteUser() {
+            const username = document.getElementById('deleteUserNameInput').value;
+            const res = await fetch('/api/user/delete', { method: 'POST', headers: apiHeaders(), body: 'username=' + encodeURIComponent(username) });
+            const data = await res.json();
+            if (data.success) { closeModal('deleteUserModal'); showToast('用户删除成功', 'success'); loadUsers(); }
+            else showToast(data.message || '删除失败', 'error');
+        }
+
+        function showToast(message, type) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all 0.3s ease'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        document.querySelectorAll('.modal-backdrop').forEach(el => { el.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('active'); }); });
+        init();
+    </script>
+</body>
+</html>

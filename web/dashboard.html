@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仓库库存管理系统 - 主面板</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-icon">&#x1F4E6;</div>
+                <div>
+                    <h2>库存管理</h2>
+                    <p>Warehouse System</p>
+                </div>
+            </div>
+            <ul class="sidebar-nav">
+                <li><a href="#" id="navDashboard" class="active"><span class="nav-icon">&#x1F4CA;</span> 设备总览</a></li>
+                <li><a href="#" id="navAdmin" style="display:none"><span class="nav-icon">&#x1F465;</span> 用户管理</a></li>
+                <li><a href="#" id="navLogs" style="display:none"><span class="nav-icon">&#x1F4CB;</span> 操作日志</a></li>
+                <li><a href="#" id="navLogout"><span class="nav-icon">&#x1F6AA;</span> 退出登录</a></li>
+            </ul>
+        </div>
+
+        <!-- Topbar -->
+        <div class="topbar">
+            <h3>设备总览</h3>
+            <div class="topbar-right">
+                <div class="topbar-user">
+                    <div class="avatar" id="userAvatar">A</div>
+                    <span id="userName">user</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <span class="stat-label">设备总数</span>
+                        <span class="stat-value" id="statTotal">0</span>
+                    </div>
+                    <div class="stat-icon blue">&#x1F4E6;</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <span class="stat-label">库存总量</span>
+                        <span class="stat-value" id="statQty">0</span>
+                    </div>
+                    <div class="stat-icon green">&#x1F4CA;</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <span class="stat-label">库存不足</span>
+                        <span class="stat-value" id="statLow">0</span>
+                    </div>
+                    <div class="stat-icon yellow">&#x26A0;</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <span class="stat-label">已清零</span>
+                        <span class="stat-value" id="statEmpty">0</span>
+                    </div>
+                    <div class="stat-icon red">&#x1F6A8;</div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="toolbar">
+                <div class="search-box">
+                    <span class="search-icon">&#x1F50D;</span>
+                    <input type="text" id="searchInput" placeholder="搜索设备名称、类别、位置...">
+                </div>
+                <button class="btn btn-primary btn-sm" id="btnAddDevice" style="display:none" onclick="showAddDeviceModal()">+ 添加设备</button>
+            </div>
+
+            <!-- Device Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h3>设备列表</h3>
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>设备名称</th>
+                                <th>类别</th>
+                                <th>库存数量</th>
+                                <th>位置</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deviceTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty-state" id="emptyState" style="display:none">
+                    <div class="empty-icon">&#x1F4E6;</div>
+                    <p>暂无设备数据</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div class="modal-backdrop" id="addDeviceModal">
+        <div class="modal">
+            <h3>添加设备</h3>
+            <form id="addDeviceForm">
+                <div class="form-group">
+                    <label>设备名称 *</label>
+                    <input type="text" name="name" class="form-input" placeholder="输入设备名称" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>类别</label>
+                        <input type="text" name="category" class="form-input" placeholder="如：电子、机械">
+                    </div>
+                    <div class="form-group">
+                        <label>初始数量</label>
+                        <input type="number" name="quantity" class="form-input" placeholder="0" min="0" value="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>存放位置</label>
+                    <input type="text" name="location" class="form-input" placeholder="如：A区-3号架">
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <input type="text" name="description" class="form-input" placeholder="设备描述（可选）">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('addDeviceModal')">取消</button>
+                    <button type="submit" class="btn btn-primary btn-sm">确认添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stock In/Out Modal -->
+    <div class="modal-backdrop" id="stockModal">
+        <div class="modal">
+            <h3 id="stockModalTitle">入库操作</h3>
+            <form id="stockForm">
+                <input type="hidden" name="device_id" id="stockDeviceId">
+                <div class="form-group">
+                    <label>设备名称</label>
+                    <input type="text" class="form-input" id="stockDeviceName" readonly style="background:var(--gray-100)">
+                </div>
+                <div class="form-group">
+                    <label>当前库存</label>
+                    <input type="text" class="form-input" id="stockCurrentQty" readonly style="background:var(--gray-100)">
+                </div>
+                <div class="form-group">
+                    <label>数量 *</label>
+                    <input type="number" name="quantity" class="form-input" placeholder="输入数量" min="1" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('stockModal')">取消</button>
+                    <button type="submit" class="btn btn-sm" id="stockSubmitBtn">确认入库</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div class="modal-backdrop" id="deleteModal">
+        <div class="modal">
+            <h3>确认删除</h3>
+            <p style="color:var(--gray-600); margin-bottom:8px;">确定要删除以下设备吗？此操作不可恢复。</p>
+            <p style="font-weight:600; color:var(--gray-900);" id="deleteDeviceName"></p>
+            <input type="hidden" id="deleteDeviceId">
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('deleteModal')">取消</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        let devices = [];
+        let isAdmin = false;
+
+        /* ===== Token Helper ===== */
+        function getToken() {
+            /* First try sessionStorage */
+            let token = sessionStorage.getItem('auth_token');
+            if (token) return token;
+            /* Then try URL query parameter (from login redirect) */
+            const params = new URLSearchParams(window.location.search);
+            token = params.get('token');
+            if (token) {
+                sessionStorage.setItem('auth_token', token);
+                /* Clean URL */
+                window.history.replaceState({}, '', '/dashboard');
+                return token;
+            }
+            return null;
+        }
+
+        function apiHeaders() {
+            const token = getToken();
+            return {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': 'Bearer ' + token
+            };
+        }
+
+        function pageUrl(path) {
+            const token = getToken();
+            return path + '?token=' + encodeURIComponent(token);
+        }
+
+        function redirectToLogin() {
+            sessionStorage.removeItem('auth_token');
+            sessionStorage.removeItem('auth_user');
+            window.location.href = '/';
+        }
+
+        /* ===== Init ===== */
+        async function init() {
+            const token = getToken();
+            if (!token) { redirectToLogin(); return; }
+
+            const username = sessionStorage.getItem('auth_user') || 'user';
+            document.getElementById('userName').textContent = username;
+            document.getElementById('userAvatar').textContent = username.charAt(0).toUpperCase();
+
+            /* Setup nav links */
+            document.getElementById('navDashboard').href = pageUrl('/dashboard');
+            document.getElementById('navAdmin').href = pageUrl('/admin');
+            document.getElementById('navLogs').href = pageUrl('/logs');
+            document.getElementById('navLogout').addEventListener('click', doLogout);
+
+            /* Validate token with server */
+            try {
+                const res = await fetch('/api/devices', { headers: { 'Authorization': 'Bearer ' + token } });
+                if (res.status === 401) { redirectToLogin(); return; }
+
+                /* Check admin */
+                const adminRes = await fetch('/api/users', { headers: { 'Authorization': 'Bearer ' + token } });
+                if (adminRes.status === 200) {
+                    isAdmin = true;
+                    document.getElementById('navAdmin').style.display = '';
+                    document.getElementById('navLogs').style.display = '';
+                    document.getElementById('btnAddDevice').style.display = '';
+                }
+            } catch (e) { redirectToLogin(); return; }
+
+            await loadDevices();
+        }
+
+        async function doLogout(e) {
+            e.preventDefault();
+            try {
+                await fetch('/logout', { headers: { 'Authorization': 'Bearer ' + getToken() } });
+            } catch (e) {}
+            redirectToLogin();
+        }
+
+        async function loadDevices(keyword) {
+            let url = '/api/devices';
+            if (keyword) url += '?search=' + encodeURIComponent(keyword);
+            try {
+                const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getToken() } });
+                if (res.status === 401) { redirectToLogin(); return; }
+                devices = await res.json();
+                renderDevices();
+                updateStats();
+            } catch (e) {
+                console.error('Failed to load devices:', e);
+            }
+        }
+
+        /* ===== Render ===== */
+        function renderDevices() {
+            const tbody = document.getElementById('deviceTableBody');
+            const empty = document.getElementById('emptyState');
+
+            if (devices.length === 0) {
+                tbody.innerHTML = '';
+                empty.style.display = '';
+                return;
+            }
+            empty.style.display = 'none';
+
+            tbody.innerHTML = devices.map(d => {
+                let statusBadge = '';
+                if (d.quantity === 0) statusBadge = '<span class="badge badge-danger">已清零</span>';
+                else if (d.quantity < 10) statusBadge = '<span class="badge badge-warning">库存不足</span>';
+                else statusBadge = '<span class="badge badge-success">正常</span>';
+
+                let actions = `
+                    <button class="btn btn-success btn-sm" onclick="showStockModal(${d.id},'${escHtml(d.name)}',${d.quantity},'in')">入库</button>
+                    <button class="btn btn-sm" style="background:var(--warning-500);color:#fff" onclick="showStockModal(${d.id},'${escHtml(d.name)}',${d.quantity},'out')">出库</button>
+                `;
+                if (isAdmin) {
+                    actions += `<button class="btn btn-danger btn-sm" onclick="showDeleteModal(${d.id},'${escHtml(d.name)}')">删除</button>`;
+                }
+
+                return `<tr>
+                    <td>${d.id}</td>
+                    <td><strong>${escHtml(d.name)}</strong></td>
+                    <td>${escHtml(d.category || '-')}</td>
+                    <td><strong>${d.quantity}</strong></td>
+                    <td>${escHtml(d.location || '-')}</td>
+                    <td>${statusBadge}</td>
+                    <td>${actions}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function updateStats() {
+            const total = devices.length;
+            const totalQty = devices.reduce((s, d) => s + d.quantity, 0);
+            const low = devices.filter(d => d.quantity > 0 && d.quantity < 10).length;
+            const empty = devices.filter(d => d.quantity === 0).length;
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statQty').textContent = totalQty;
+            document.getElementById('statLow').textContent = low;
+            document.getElementById('statEmpty').textContent = empty;
+        }
+
+        function escHtml(str) {
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        /* ===== Modals ===== */
+        function showAddDeviceModal() {
+            document.getElementById('addDeviceForm').reset();
+            openModal('addDeviceModal');
+        }
+
+        function showStockModal(id, name, qty, type) {
+            document.getElementById('stockDeviceId').value = id;
+            document.getElementById('stockDeviceName').value = name;
+            document.getElementById('stockCurrentQty').value = qty;
+            document.getElementById('stockModalTitle').textContent = type === 'in' ? '入库操作' : '出库操作';
+
+            const btn = document.getElementById('stockSubmitBtn');
+            btn.textContent = type === 'in' ? '确认入库' : '确认出库';
+            btn.className = type === 'in' ? 'btn btn-success btn-sm' : 'btn btn-sm';
+            if (type === 'out') btn.style.background = 'var(--warning-500)';
+            btn.dataset.type = type;
+
+            document.getElementById('stockForm').reset();
+            document.getElementById('stockDeviceId').value = id;
+            document.getElementById('stockDeviceName').value = name;
+            document.getElementById('stockCurrentQty').value = qty;
+            openModal('stockModal');
+        }
+
+        function showDeleteModal(id, name) {
+            document.getElementById('deleteDeviceId').value = id;
+            document.getElementById('deleteDeviceName').textContent = name;
+            openModal('deleteModal');
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        /* ===== Actions ===== */
+        document.getElementById('addDeviceForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const fd = new FormData(this);
+            const params = new URLSearchParams();
+            for (const [k, v] of fd) params.append(k, v);
+
+            const res = await fetch('/api/device/add', {
+                method: 'POST',
+                headers: apiHeaders(),
+                body: params.toString()
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('addDeviceModal');
+                showToast('设备添加成功', 'success');
+                loadDevices();
+            } else {
+                showToast(data.message || '添加失败', 'error');
+            }
+        });
+
+        document.getElementById('stockForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const fd = new FormData(this);
+            const type = document.getElementById('stockSubmitBtn').dataset.type;
+            const url = type === 'in' ? '/api/stock/in' : '/api/stock/out';
+            const params = new URLSearchParams();
+            for (const [k, v] of fd) params.append(k, v);
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: apiHeaders(),
+                body: params.toString()
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('stockModal');
+                showToast(data.message, 'success');
+                loadDevices();
+            } else {
+                showToast(data.message || '操作失败', 'error');
+            }
+        });
+
+        async function confirmDelete() {
+            const id = document.getElementById('deleteDeviceId').value;
+            const res = await fetch('/api/device/delete', {
+                method: 'POST',
+                headers: apiHeaders(),
+                body: 'id=' + id
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('deleteModal');
+                showToast('设备删除成功', 'success');
+                loadDevices();
+            } else {
+                showToast(data.message || '删除失败', 'error');
+            }
+        }
+
+        /* ===== Search ===== */
+        let searchTimer = null;
+        document.getElementById('searchInput').addEventListener('input', function() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                loadDevices(this.value || null);
+            }, 300);
+        });
+
+        /* ===== Toast ===== */
+        function showToast(message, type) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        /* Close modal on backdrop click */
+        document.querySelectorAll('.modal-backdrop').forEach(el => {
+            el.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.remove('active');
+            });
+        });
+
+        init();
+    </script>
+</body>
+</html>
